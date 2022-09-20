@@ -70,11 +70,10 @@ const routes = [
 						item = JSON.parse(chunk);
 					});
 					req.on("end", () => {
-						// Item hợp lệ
 						if (item.id && item.name)
 							if (
-								myGroupMember.find((id) => id === item.id) && // Có trong nhóm đề tài cuối kì
-								!mygroup.find((st) => st.id === item.id) // Chưa có trong mygroup
+								myGroupMember.find((id) => id === item.id) &&
+								!mygroup.find((st) => st.id === item.id)
 							) {
 								mygroup.push(item);
 								res.end();
