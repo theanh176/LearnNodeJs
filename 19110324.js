@@ -1,57 +1,108 @@
-const ps = require("prompt-sync");
-const axios = require("axios");
-let csvToJson = require("csvtojson");
-const process = require("process");
+var http = require("http");
 
-let date_start = process.argv[2];
-let date_end = process.argv[3];
-let country = process.argv[4];
+const myGroupMember = ["19110440", "19110441"];
 
-let Confirmed = [];
-let Deaths = [];
-let Recovered = [];
+const mygroup = [
+	{
+		id: "19110324",
+		name: "Trần Lưu Thế Anh",
+	},
+];
 
-const handleFinal = async (start_date, end_date, country) => {
-	await readFileCSV(start_date, country);
-	await readFileCSV(end_date, country);
-	console.log(
-		Confirmed[1] - Confirmed[0],
-		Deaths[1] - Deaths[0],
-		Recovered[1] - Recovered[0]
-	);
-};
+const routes = [
+	{
+		path: "/message",
+		handle: (req, res) => {
+			if (req.method === "GET") {
+				const id = req.url.replace("/message", "").replace("/", "");
+				if (id) {
+					const student = mygroup.find((st) => st.id === id);
+					if (student) {
+						res.setHeader(
+							"content-type",
+							"text/html; charset=utf-8"
+						);
+						res.end(
+							`<html>
+                            <body>
+                                <ul>
+                                    <li>${student.name}</li>
+                                </ul>
+                            </body>
+                        </html>`
+						);
+					} else {
+						res.end("Not valid");
+					}
+				} else {
+					res.setHeader("content-type", "text/html; charset=utf-8");
 
-const readFileCSV = async (dateF, country) => {
-	const date = dateF;
-	const [month, day, year] = date.split("-");
-	const dateFinal = [day, month, year].join("-");
+					res.end(
+						`<html>
+                            <body>
+                                <ul>
+                                    ${mygroup
+										.map((st) => `<li>${st.name}</li>`)
+										.join("")}
+                                </ul>
+                            </body>
+                        </html>`
+					);
+				}
+			} else res.end("Not valid!");
+		},
+	},
+	{
+		path: "/19110324",
+		handle: (req, res) => {
+			switch (req.method) {
+				case "GET":
+					const id = req.url.replace("/19110324/", "");
 
-	const url = `https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_daily_reports/${dateFinal}.csv`;
-	const resp = await axios.get(url);
-	const results = await csvToJson().fromString(resp.data);
-	filterCountry(
-		country
-			? results.filter(
-					(data) =>
-						data.Country_Region.toLowerCase() ===
-						country.toLowerCase().replace(/_/g, " ")
-			  )
-			: results
-	);
-};
+					const info = mygroup.find((student) => student.id === id);
+					if (info) res.end(JSON.stringify(info));
+					else res.end(JSON.stringify({ error: "not valid" }));
+					break;
 
-function filterCountry(data) {
-	let sumConfirmed = 0;
-	let sumDeaths = 0;
-	let sumRecovered = 0;
-	for (const result of data) {
-		sumConfirmed += Number(result.Confirmed);
-		sumDeaths += Number(result.Deaths);
-		sumRecovered += Number(result.Recovered);
-	}
-	Confirmed.push(sumConfirmed);
-	Deaths.push(sumDeaths);
-	Recovered.push(sumRecovered);
-}
+				case "POST":
+					var item = {};
+					req.on("data", (chunk) => {
+						item = JSON.parse(chunk);
+					});
+					req.on("end", () => {
+						// Item hợp lệ
+						if (item.id && item.name)
+							if (
+								myGroupMember.find((id) => id === item.id) && // Có trong nhóm đề tài cuối kì
+								!mygroup.find((st) => st.id === item.id) // Chưa có trong mygroup
+							) {
+								mygroup.push(item);
+								res.end();
+							} else res.end("Not valid");
+						else res.end("Not valid");
+					});
+					break;
 
-handleFinal(date_start, date_end, country);
+				default:
+					res.end("Not valid");
+			}
+		},
+	},
+	{
+		path: "/",
+		handle: (req, res) => {
+			res.end(JSON.stringify(mygroup));
+		},
+	},
+];
+
+const server = http.createServer(function (req, res) {
+	res.setHeader("content-type", "application/json; charset=utf-8");
+
+	const url = req.url;
+	routes.find((route) => url.startsWith(route.path))?.handle(req, res);
+});
+
+server.listen(5000, () => {
+	console.log("Server is listening on port 5000");
+});
